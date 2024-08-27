@@ -1,0 +1,65 @@
+version: "3.7"
+
+volumes:
+  synthesis-postgres-storage:
+  synthesis-redis-storage:
+
+networks:
+  synthesis-network:
+    name: synthesis-network
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: synthesis-postgres
+    environment: 
+      - POSTGRES_DB=${PSQL_DATABASE}
+      - POSTGRES_USER=${PSQL_USERNAME}
+      - POSTGRES_PASSWORD=${PSQL_PASSWORD}
+      - PGDATA=/data/postgres
+    volumes:
+       - synthesis-postgres-storage:/data/postgres
+    networks:
+      synthesis-network:
+    ports:
+      - "${PSQL_PORT}:5432"
+    hostname: synthesis-postgres
+    restart: always
+  redis:
+    image: redis:6.2.4-alpine
+    container_name: synthesis-redis
+    volumes:
+      - synthesis-redis-storage:/var/lib/redis
+    networks:
+      synthesis-network:
+    ports:
+      - "${REDIS_PORT}:6379"
+    hostname: synthesis-redis
+    restart: always
+  adminer:
+    image: adminer
+    container_name: synthesis-adminer
+    environment:
+      - ADMINER_SERVER=synthesis-postgres:5432
+      - ADMINER_USERNAME=${PSQL_USERNAME}
+      - ADMINER_PASSWORD=${PSQL_PASSWORD}
+      - ADMINER_DRIVER=pgsql
+      - ADMINER_PLUGINS=tables-filter tinymce
+      - ADMINER_DESIGN=lucas-sandery
+    networks:
+      synthesis-network:
+    ports:
+      - "8092:8080"
+    hostname: synthesis
+    restart: always
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: synthesis-redis-commander
+    environment:
+      - REDIS_HOSTS=synthesis:synthesis-redis:6379
+    networks:
+      synthesis-network:
+    ports:
+      - "8091:8081"
+    hostname: synthesis-redis-commander
+    restart: always
