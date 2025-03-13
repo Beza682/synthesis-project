@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { BigNumber } from 'bignumber.js'
-import { In, Repository } from 'typeorm'
+import { EntityManager, In, Repository } from 'typeorm'
 
 import { CurrencyService } from '../currencies/currency.service'
 import { DEFAULT_LIMIT, DEFAULT_OFFSET } from '../shared/constants'
@@ -84,8 +84,10 @@ export class UserService {
         }
     }
 
-    async findOne(id: string): Promise<UserType> {
-        const user = await this._userRepository.findOne({
+    async findOne(id: string, queryManager?: EntityManager): Promise<UserType> {
+        const manager = queryManager || this._userRepository.manager
+
+        const user = await manager.findOne(UserEntity, {
             where: { id },
             relations: ['currency'],
         })
@@ -100,11 +102,15 @@ export class UserService {
         return this._parseData(user)
     }
 
-    async update(updateUser: {
-        id: string
-        balance?: BigNumber
-        currency?: { id: string }
-    }): Promise<UserType> {
+    async update(
+        updateUser: {
+            id: string
+            balance?: BigNumber
+            currency?: { id: string }
+        },
+        queryManager?: EntityManager,
+    ): Promise<UserType> {
+        const manager = queryManager || this._userRepository.manager
         const { id, currency } = updateUser
 
         const userIdsWithoutUpdates = getIdsWithoutUpdates([updateUser])
@@ -120,7 +126,7 @@ export class UserService {
             await this._currencyService.validateCurrency([currency.id])
         }
 
-        const usersCount = await this._userRepository.count({
+        const usersCount = await manager.count(UserEntity, {
             where: { id },
         })
 
@@ -131,10 +137,9 @@ export class UserService {
             )
         }
 
-        await this._userRepository.save(updateUser)
+        await manager.save(UserEntity, updateUser)
 
-        const updateUsers = await this.findOne(id)
-        const user = updateUsers
+        const user = await this.findOne(id, manager)
 
         if (!user) {
             throw new HttpException(

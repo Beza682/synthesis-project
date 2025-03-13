@@ -29,10 +29,17 @@ export class TransactionService {
         const queryRunner =
             this._transactionRepository.manager.connection.createQueryRunner()
         await queryRunner.startTransaction()
+        const { manager: queryManager } = queryRunner
 
         try {
-            const sender = await this._userService.findOne(from.id)
-            const recipient = await this._userService.findOne(to.id)
+            const sender = await this._userService.findOne(
+                from.id,
+                queryManager,
+            )
+            const recipient = await this._userService.findOne(
+                to.id,
+                queryManager,
+            )
 
             const coef =
                 sender.currencyId !== recipient.currencyId
@@ -56,22 +63,28 @@ export class TransactionService {
                 )
             }
 
-            const transactions = await this._transactionRepository.save(
+            const transactions = await queryManager.save(
                 this._transactionRepository.create({
                     ...createTransactionDto,
                     amount: transactionAmount,
                 }),
             )
 
-            await this._userService.update({
-                id: sender.id,
-                balance: sender.balance.minus(transactionAmount),
-            })
+            await this._userService.update(
+                {
+                    id: sender.id,
+                    balance: sender.balance.minus(transactionAmount),
+                },
+                queryManager,
+            )
 
-            await this._userService.update({
-                id: recipient.id,
-                balance: recipient.balance.plus(amount),
-            })
+            await this._userService.update(
+                {
+                    id: recipient.id,
+                    balance: recipient.balance.plus(amount),
+                },
+                queryManager,
+            )
 
             const transaction = this._parseData(transactions)
 
