@@ -37,7 +37,6 @@
     "@nestjs/typeorm": "^10.0.2",
     "@types/ioredis": "^5.0.0",
     "@types/uuid": "^10.0.0",
-    "axios": "^1.7.5",
     "bcryptjs": "^2.4.3",
     "bignumber.js": "^9.1.2",
     "class-transformer": "^0.5.1",

@@ -7,7 +7,6 @@ import { RatesService } from '../rates/rates.service'
 import { DEFAULT_LIMIT, DEFAULT_OFFSET } from '../shared/constants'
 import { UserService } from '../users/user.service'
 
-import { CreateTransactionDto, FindTransactionsDto } from './dtos'
 import { TransactionEntity } from './entities'
 import { TransactionsType, TransactionType } from './types'
 
@@ -20,65 +19,86 @@ export class TransactionService {
         private readonly _ratesService: RatesService,
     ) {}
 
-    async create(
-        createTransactionDto: CreateTransactionDto,
-    ): Promise<TransactionType> {
+    async create(createTransactionDto: {
+        amount: BigNumber
+        from: { id: string }
+        to: { id: string }
+    }): Promise<TransactionType> {
         const { amount, from, to } = createTransactionDto
 
-        const sender = await this._userService.findOne(from.id )
-        const recipient = await this._userService.findOne(to.id)
+        const queryRunner =
+            this._transactionRepository.manager.connection.createQueryRunner()
+        await queryRunner.startTransaction()
 
-        const coef =
-            sender.currencyId !== recipient.currencyId
-                ? await this._ratesService.getConvertCoefficient(
-                      sender.currencyId,
-                      recipient.currencyId,
-                  )
-                : new BigNumber('1')
+        try {
+            const sender = await this._userService.findOne(from.id)
+            const recipient = await this._userService.findOne(to.id)
 
-        const totalAmount = sender.balance.minus(amount.multipliedBy(coef))
-        const canCreateTransaction = totalAmount.isGreaterThanOrEqualTo(
-            new BigNumber(0),
-        )
+            const coef =
+                sender.currencyId !== recipient.currencyId
+                    ? await this._ratesService.getConvertCoefficient(
+                          sender.currencyId,
+                          recipient.currencyId,
+                      )
+                    : new BigNumber('1')
 
-        if (!canCreateTransaction) {
-            throw new HttpException(
-                'Insufficient balance to complete the transaction.',
-                HttpStatus.BAD_REQUEST,
+            const transactionAmount = amount.multipliedBy(coef)
+            const totalAmount = sender.balance.minus(transactionAmount)
+
+            const canCreateTransaction = totalAmount.isGreaterThanOrEqualTo(
+                new BigNumber(0),
             )
-        }
 
-        const transactions = await this._transactionRepository.save(
-            this._transactionRepository.create({
-                ...createTransactionDto,
-                amount: totalAmount,
-            }),
-        )
+            if (!canCreateTransaction) {
+                throw new HttpException(
+                    'Insufficient balance to complete the transaction.',
+                    HttpStatus.BAD_REQUEST,
+                )
+            }
 
-        await this._userService.update({
-            id: sender.id,
-            balance: sender.balance.minus(totalAmount),
-        })
-
-        await this._userService.update({
-            id: recipient.id,
-            balance: recipient.balance.plus(totalAmount),
-        })
-
-        const transaction = this._parseData(transactions)
-
-        if (!transaction) {
-            throw new HttpException(
-                'The transaction was not created.',
-                HttpStatus.BAD_REQUEST,
+            const transactions = await this._transactionRepository.save(
+                this._transactionRepository.create({
+                    ...createTransactionDto,
+                    amount: transactionAmount,
+                }),
             )
-        }
 
-        return transaction
+            await this._userService.update({
+                id: sender.id,
+                balance: sender.balance.minus(transactionAmount),
+            })
+
+            await this._userService.update({
+                id: recipient.id,
+                balance: recipient.balance.plus(amount),
+            })
+
+            const transaction = this._parseData(transactions)
+
+            if (!transaction) {
+                throw new HttpException(
+                    'The transaction was not created.',
+                    HttpStatus.BAD_REQUEST,
+                )
+            }
+
+            await queryRunner.commitTransaction()
+
+            return transaction
+        } catch (error) {
+            await queryRunner.rollbackTransaction()
+            throw error
+        } finally {
+            await queryRunner.release()
+        }
     }
 
-    async find(findUserDto: FindTransactionsDto): Promise<TransactionsType> {
-        const { fromId, toId, filter } = findUserDto
+    async find(findUser: {
+        fromId?: string
+        toId?: string
+        filter?: { limit?: number; offset?: number }
+    }): Promise<TransactionsType> {
+        const { fromId, toId, filter } = findUser
 
         const limit = filter?.limit ? filter.limit : DEFAULT_LIMIT
         const offset = filter?.offset ? filter.offset : DEFAULT_OFFSET

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { Injectable } from '@nestjs/common'
 import { PassportStrategy } from '@nestjs/passport'
 import { config } from 'dotenv'
@@ -16,10 +15,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             ignoreExpiration: false,
             secretOrKey: process.env.JWT_SECRET,
             logging: true,
+            exp: process.env.JWT_EXP_TIME,
         })
     }
 
-    async validate(payload: JwtPayload) {
+    validate(payload: JwtPayload): { userId: string; login: string } {
         return { userId: payload.sub, login: payload.login }
     }
 }

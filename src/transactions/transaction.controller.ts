@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common'
+import { Controller, Get, Post, Body, Param, UseGuards, Query } from '@nestjs/common'
 
 import { JwtAuthGuard } from '../jwt/guards/jwt-auth.guard'
 
@@ -11,7 +11,7 @@ import { TransactionsType, TransactionType } from './types'
 export class TransactionController {
     constructor(private readonly _transactionService: TransactionService) {}
 
-    @Post('create')
+    @Post()
     async create(
         @Body() createTransactionDto: CreateTransactionDto,
     ): Promise<TransactionType> {
@@ -22,9 +22,9 @@ export class TransactionController {
         return response
     }
 
-    @Get('find')
+    @Get()
     async find(
-        @Body() findTransactionsDto: FindTransactionsDto,
+        @Query() findTransactionsDto: FindTransactionsDto,
     ): Promise<TransactionsType> {
         const response = await this._transactionService.find(
             findTransactionsDto,
@@ -33,7 +33,7 @@ export class TransactionController {
         return response
     }
 
-    @Get('find/:id')
+    @Get(':id')
     async findOne(@Param('id') id: string): Promise<TransactionType> {
         const response = await this._transactionService.findOne(id)
 

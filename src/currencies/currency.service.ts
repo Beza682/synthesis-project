@@ -1,29 +1,35 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { InjectRepository } from '@nestjs/typeorm'
-import { In, Repository } from 'typeorm'
+import { FindOptionsWhere, In, Repository } from 'typeorm'
 
 import { arrayToFormatString, getIdsWithoutUpdates } from '../shared/helpers'
 
-import { CreateCurrencyDto, UpdateCurrencyDto } from './dtos'
 import { CurrencyEntity } from './entities'
+import { ICreateCurrency, IUpdateCurrency } from './interfaces'
 import { CurrencyType } from './types'
 
 @Injectable()
 export class CurrencyService {
+    private readonly _baseCurrency: string
+
     constructor(
         @InjectRepository(CurrencyEntity)
         private readonly _currencyRepository: Repository<CurrencyEntity>,
-    ) {}
+        private readonly _configService: ConfigService,
+    ) {
+        this._baseCurrency = this._configService.get<string>(
+            `CURRENCYFREAKS_BASE_CURRENCY`,
+        )
+    }
 
-    async create(createCurrencyDto: CreateCurrencyDto): Promise<CurrencyType>
+    async create(createCurrency: ICreateCurrency): Promise<CurrencyType>
+    async create(createCurrency: ICreateCurrency[]): Promise<CurrencyType[]>
     async create(
-        createCurrencyDto: CreateCurrencyDto[],
-    ): Promise<CurrencyType[]>
-    async create(
-        createCurrencyDto: CreateCurrencyDto | CreateCurrencyDto[],
+        createCurrency: ICreateCurrency | ICreateCurrency[],
     ): Promise<CurrencyType | CurrencyType[]> {
-        const isFewDtos = Array.isArray(createCurrencyDto)
-        const dtos = isFewDtos ? createCurrencyDto : [createCurrencyDto]
+        const isFewDtos = Array.isArray(createCurrency)
+        const dtos = isFewDtos ? createCurrency : [createCurrency]
 
         const currenciesCount = await this._currencyRepository.count({
             where: { code: In(dtos.map(({ code }) => code)) },
@@ -60,16 +66,14 @@ export class CurrencyService {
         return this._parseData(currencies)
     }
 
-    async getCurrenciesIds(): Promise<string[]> {
-        return (await this._currencyRepository.find()).map(({ id }) => id)
-    }
-
-    async findOne(id: string): Promise<CurrencyType> {
-        const currency = await this._currencyRepository.findOneBy({ id })
+    async findOne(
+        filter: FindOptionsWhere<CurrencyEntity>,
+    ): Promise<CurrencyType> {
+        const currency = await this._currencyRepository.findOneBy(filter)
 
         if (!currency) {
             throw new HttpException(
-                `The currency by ID ${id} was not found.`,
+                `The currency by filter ${filter} was not found.`,
                 HttpStatus.NOT_FOUND,
             )
         }
@@ -77,15 +81,32 @@ export class CurrencyService {
         return this._parseData(currency)
     }
 
-    async update(updateCurrencyDto: UpdateCurrencyDto): Promise<CurrencyType>
+    async getBaseCurrency(): Promise<CurrencyType> {
+        const currency = await this._currencyRepository.findOneBy({
+            code: this._baseCurrency,
+        })
+
+        if (!currency) {
+            throw new HttpException(
+                `The currency base currency was not found.`,
+                HttpStatus.NOT_FOUND,
+            )
+        }
+
+        return this._parseData(currency)
+    }
+
+    async getCurrenciesIds(): Promise<string[]> {
+        return (await this._currencyRepository.find()).map(({ id }) => id)
+    }
+
+    async update(updateCurrency: IUpdateCurrency): Promise<CurrencyType>
+    async update(updateCurrency: IUpdateCurrency[]): Promise<CurrencyType[]>
     async update(
-        updateCurrencyDto: UpdateCurrencyDto[],
-    ): Promise<CurrencyType[]>
-    async update(
-        updateCurrencyDto: UpdateCurrencyDto | UpdateCurrencyDto[],
+        updateCurrency: IUpdateCurrency | IUpdateCurrency[],
     ): Promise<CurrencyType | CurrencyType[]> {
-        const isFewDtos = Array.isArray(updateCurrencyDto)
-        const dtos = isFewDtos ? updateCurrencyDto : [updateCurrencyDto]
+        const isFewDtos = Array.isArray(updateCurrency)
+        const dtos = isFewDtos ? updateCurrency : [updateCurrency]
 
         const currencyIds = dtos.map(({ id }) => id)
 

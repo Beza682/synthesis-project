@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
+import { BigNumber } from 'bignumber.js'
 import { In, Repository } from 'typeorm'
 
 import { CurrencyService } from '../currencies/currency.service'
@@ -7,7 +8,6 @@ import { DEFAULT_LIMIT, DEFAULT_OFFSET } from '../shared/constants'
 import { getIdsWithoutUpdates } from '../shared/helpers'
 import { encodePassword } from '../shared/utils/bcrypt'
 
-import { CreateUserDto, FindUsersDto, UpdateUserDto } from './dtos'
 import { UserEntity } from './entities'
 import { UsersType, UserType } from './types'
 
@@ -19,9 +19,14 @@ export class UserService {
         private readonly _currencyService: CurrencyService,
     ) {}
 
-    async create(createUserDto: CreateUserDto): Promise<UserType> {
+    async create(createUser: {
+        login: string
+        password: string
+        balance: BigNumber
+        currency: { id: string }
+    }): Promise<UserType> {
         const usersCount = await this._userRepository.count({
-            where: { login: createUserDto.login },
+            where: { login: createUser.login },
         })
 
         if (usersCount !== 0) {
@@ -31,14 +36,12 @@ export class UserService {
             )
         }
 
-        await this._currencyService.validateCurrency([
-            createUserDto.currency.id,
-        ])
+        await this._currencyService.validateCurrency([createUser.currency.id])
 
-        const password = await encodePassword(createUserDto.password)
+        const password = await encodePassword(createUser.password)
 
         const users = await this._userRepository.save(
-            this._userRepository.create({ ...createUserDto, password }),
+            this._userRepository.create({ ...createUser, password }),
         )
 
         const user = this._parseData(users)
@@ -53,8 +56,11 @@ export class UserService {
         return user
     }
 
-    async find(findUsersDto: FindUsersDto): Promise<UsersType> {
-        const { currencyId, filter } = findUsersDto
+    async find(findUsers: {
+        currencyId?: string
+        filter?: { limit?: number; offset?: number }
+    }): Promise<UsersType> {
+        const { currencyId, filter } = findUsers
 
         const limit = filter?.limit ? filter.limit : DEFAULT_LIMIT
         const offset = filter?.offset ? filter.offset : DEFAULT_OFFSET
@@ -94,10 +100,14 @@ export class UserService {
         return this._parseData(user)
     }
 
-    async update(updateUserDto: UpdateUserDto): Promise<UserType> {
-        const { id, currency } = updateUserDto
+    async update(updateUser: {
+        id: string
+        balance?: BigNumber
+        currency?: { id: string }
+    }): Promise<UserType> {
+        const { id, currency } = updateUser
 
-        const userIdsWithoutUpdates = getIdsWithoutUpdates([updateUserDto])
+        const userIdsWithoutUpdates = getIdsWithoutUpdates([updateUser])
 
         if (userIdsWithoutUpdates.length) {
             throw new HttpException(
@@ -121,7 +131,7 @@ export class UserService {
             )
         }
 
-        await this._userRepository.save(updateUserDto)
+        await this._userRepository.save(updateUser)
 
         const updateUsers = await this.findOne(id)
         const user = updateUsers

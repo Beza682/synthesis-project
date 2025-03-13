@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { AuthModule } from './auth/auth.module'
 import { config } from './config/config'
 import { typeormConfig } from './config/typeorm.config'
+import { CronModule } from './crons/cron.module'
 import { CurrencyModule } from './currencies/currency.module'
 import { RatesModule } from './rates/rates.module'
 import { AllExceptionsFilter } from './shared/exceptions'
@@ -23,6 +24,7 @@ import { UserModule } from './users/user.module'
         RatesModule,
         TelegramModule,
         AuthModule,
+        CronModule,
     ],
     providers: [
         {

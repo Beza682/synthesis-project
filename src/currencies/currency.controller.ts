@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common'
+import {
+    Controller,
+    Get,
+    Post,
+    Body,
+    Param,
+    UseGuards,
+    Delete,
+    Patch,
+    ParseUUIDPipe,
+} from '@nestjs/common'
 
 import { JwtAuthGuard } from '../jwt/guards/jwt-auth.guard'
 
@@ -11,41 +21,49 @@ import { CurrencyType } from './types'
 export class CurrencyController {
     constructor(private readonly _currencyService: CurrencyService) {}
 
-    @Post('create')
+    @Post()
     async create(
         @Body() createCurrencyDto: CreateCurrencyDto[],
-    ): Promise<CurrencyType | CurrencyType[]> {
+    ): Promise<CurrencyType[]> {
         const response = await this._currencyService.create(createCurrencyDto)
 
         return response
     }
 
-    @Get('find')
+    @Get()
     async find(): Promise<CurrencyType[]> {
         const response = await this._currencyService.find()
 
         return response
     }
 
-    @Get('find/:id')
-    async findOne(@Param('id') id: string): Promise<CurrencyType> {
-        const response = await this._currencyService.findOne(id)
+    @Get(':id')
+    async findOne(
+        @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    ): Promise<CurrencyType> {
+        const response = await this._currencyService.findOne({ id })
 
         return response
     }
 
-    @Post('update')
+    @Patch(':id')
     async update(
+        @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
         @Body() updateCurrencyDto: UpdateCurrencyDto[],
     ): Promise<CurrencyType | CurrencyType[]> {
-        const response = await this._currencyService.update(updateCurrencyDto)
+        const response = await this._currencyService.update({
+            id,
+            ...updateCurrencyDto,
+        })
 
         return response
     }
 
-    @Post('delete')
-    async remove(@Body() ids: string[]): Promise<string | string[]> {
-        const response = await this._currencyService.remove(ids)
+    @Delete(':id')
+    async remove(
+        @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    ): Promise<string> {
+        const response = await this._currencyService.remove(id)
 
         return response
     }

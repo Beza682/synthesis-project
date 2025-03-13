@@ -1,16 +1,20 @@
-import { IsISO4217CurrencyCode, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator'
+import {
+    IsISO4217CurrencyCode,
+    IsNotEmpty,
+    IsOptional,
+    IsString,
+} from 'class-validator'
 
-export class UpdateCurrencyDto {
-    @IsUUID('4')
-    id: string
+import { IUpdateCurrency } from '../interfaces'
 
+export class UpdateCurrencyDto implements Omit<IUpdateCurrency, 'id'> {
     @IsString()
-    @IsNotEmpty()
     @IsOptional()
-    name?:string
+    @IsNotEmpty()
+    name?: string
 
     @IsISO4217CurrencyCode()
-    @IsNotEmpty()
     @IsOptional()
-    code?:string
+    @IsNotEmpty()
+    code?: string
 }

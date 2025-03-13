@@ -1,11 +1,13 @@
-import { IsISO4217CurrencyCode, IsNotEmpty, IsString } from "class-validator"
+import { IsISO4217CurrencyCode, IsNotEmpty, IsString } from 'class-validator'
 
-export class CreateCurrencyDto {
+import { ICreateCurrency } from '../interfaces'
+
+export class CreateCurrencyDto implements ICreateCurrency {
     @IsString()
     @IsNotEmpty()
-    name:string
+    name: string
 
     @IsISO4217CurrencyCode()
     @IsNotEmpty()
-    code:string
+    code: string
 }

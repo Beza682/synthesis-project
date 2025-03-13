@@ -1,14 +1,13 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { InjectRepository } from '@nestjs/typeorm'
+import { BigNumber } from 'bignumber.js'
 import { Repository } from 'typeorm'
 
 import { comparePassword } from '../shared/utils/bcrypt'
 import { UserEntity } from '../users/entities'
 import { UserService } from '../users/user.service'
 
-import { SignInDto, SignUpDto } from './dtos'
 import { AuthUserType } from './types'
 
 @Injectable()
@@ -20,9 +19,12 @@ export class AuthService {
         private readonly _jwtService: JwtService,
     ) {}
 
-    async singIn(signInDto: SignInDto): Promise<AuthUserType> {
+    async singIn(signIn: {
+        login: string
+        password: string
+    }): Promise<AuthUserType> {
         const foundUser = await this._userRepository.findOne({
-            where: { login: signInDto.login },
+            where: { login: signIn.login },
         })
 
         if (!foundUser) {
@@ -32,7 +34,7 @@ export class AuthService {
             )
         }
         const passwordMatch = await comparePassword(
-            signInDto.password,
+            signIn.password,
             foundUser.password,
         )
 
@@ -44,18 +46,23 @@ export class AuthService {
         }
 
         return {
-            access_token: this._jwtService.sign({
+            accessToken: this._jwtService.sign({
                 login: foundUser.login,
                 sub: foundUser.id,
             }),
         }
     }
 
-    async singUp(signUpDto: SignUpDto): Promise<AuthUserType> {
-        const user = await  this._userService.create(signUpDto)
+    async singUp(signUp: {
+        login: string
+        password: string
+        balance: BigNumber
+        currency: { id: string }
+    }): Promise<AuthUserType> {
+        const user = await this._userService.create(signUp)
 
         return {
-            access_token: this._jwtService.sign({
+            accessToken: this._jwtService.sign({
                 login: user.login,
                 sub: user.id,
             }),
